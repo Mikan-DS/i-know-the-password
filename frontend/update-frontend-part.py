@@ -27,12 +27,14 @@ os.makedirs("../static/frontend/css/", exist_ok=True)
 css_file = [i for i in css_files if "main" in os.path.basename(i)][0]
 shutil.copy(css_file, f'../static/frontend/css/{os.path.basename(css_file)}')
 
-shutil.rmtree("../static/media", ignore_errors=True)
-shutil.copytree("build/static/media", "../static/media", dirs_exist_ok=True)
+if os.path.exists("build/static/media"):
+    shutil.rmtree("../static/media", ignore_errors=True)
+    shutil.copytree("build/static/media", "../static/media", dirs_exist_ok=True)
 
 with open("../templates/frontend/app.html", "w", encoding="UTF-8") as file:
     file.write(template % (os.path.basename(js_file), os.path.basename(css_file)))
 
 os.chdir('../static')
 os.system('git add ./frontend/')
-os.system('git add ./media/')
+if os.path.exists("./media"):
+    os.system('git add ./media/')

@@ -12,7 +12,7 @@ class Settings(models.Model):
         (0, "GIGACHAT_API_PERS")
     ]
 
-    gigachat_scope = models.CharField(default=0, choices=SCOPES, verbose_name="Версия API")
+    gigachat_scope = models.IntegerField(default=0, choices=SCOPES, verbose_name="Версия API")
 
     gigachat_access_token = models.CharField(max_length=500, blank=True, null=True, verbose_name="НЕ МЕНЯТЬ")
     gigachat_expired_at = models.IntegerField(default=0, verbose_name="НЕ МЕНЯТЬ")
