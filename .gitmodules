@@ -1,0 +1,3 @@
+[submodule "frontend/i-know-the-password-frontend"]
+	path = frontend/i-know-the-password-frontend
+	url = https://github.com/Mikan-DS/i-know-the-password-frontend.git
