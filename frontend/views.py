@@ -157,6 +157,8 @@ def reset(request):
             settings.gigachat_access_token = json_data['access_token']
             settings.gigachat_expired_at = json_data['expires_at']
             settings.save()
+        else:
+            raise Exception(response.text)
 
     return JsonResponse({})
 
