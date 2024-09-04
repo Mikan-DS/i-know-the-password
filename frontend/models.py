@@ -1,8 +1,9 @@
+from django.contrib.auth.models import User
 from django.db import models
+
 
 # Create your models here.
 class Settings(models.Model):
-
     gigachat_auth_data = models.CharField(max_length=500, blank=True, null=True, verbose_name="Базовая аутентификация")
     gigachat_auth_url = models.URLField(
         default='https://ngw.devices.sberbank.ru:9443/api/v2/oauth',
@@ -29,3 +30,35 @@ class Settings(models.Model):
             raise ValueError('Настройка уникальна, больше создавать нельзя!')
 
         return super(Settings, self).save(*args, **kwargs)
+
+
+class Game(models.Model):
+    STATES = [
+        (0, "Игра не началась"),
+        (1, "Ввод инструкций для защиты"),
+        (2, "Ввод инструкций для взлома"),
+        (3, "Раунд завершен")
+    ]
+
+    state = models.IntegerField(choices=STATES, default=0, verbose_name="Стадия игры")
+
+    winner = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="Победитель", null=True, blank=True)
+
+
+class Team(models.Model):
+    name = models.CharField(max_length=30, unique=True, verbose_name="Название команды")
+    code = models.CharField(max_length=30, verbose_name="Секретный код")
+    secure_instruction = models.TextField(max_length=400, verbose_name="Инструкции для защиты", null=True, blank=True)
+    game = models.ForeignKey(Game, on_delete=models.CASCADE, verbose_name="Игра")
+
+
+class TeamMember(models.Model):
+    team = models.ForeignKey(Team, on_delete=models.CASCADE, verbose_name="Команда")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="Игрок", related_name="team_members",
+                             unique=True)
+
+
+class TryingInstruction(models.Model):
+    team_member = models.ForeignKey(TeamMember, on_delete=models.CASCADE, verbose_name="Игрок")
+    instruction = models.TextField(max_length=500, verbose_name="Инструкция")
+    answer = models.TextField(max_length=1000, verbose_name="Ответ ИИ")
