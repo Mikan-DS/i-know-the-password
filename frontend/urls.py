@@ -11,4 +11,5 @@ urlpatterns = [
     path('next/', views.next_state, name='next'),
     path('reset/', views.reset, name='reset'),
     path('send-message/', views.send_message, name='send-message'),
+    path('send-password/', views.send_password, name='send-password'),
 ]

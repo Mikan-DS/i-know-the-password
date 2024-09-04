@@ -15,7 +15,7 @@ class Settings(models.Model):
 
     gigachat_scope = models.IntegerField(default=0, choices=SCOPES, verbose_name="Версия API")
 
-    gigachat_access_token = models.CharField(max_length=500, blank=True, null=True, verbose_name="НЕ МЕНЯТЬ")
+    gigachat_access_token = models.CharField(max_length=1700, blank=True, null=True, verbose_name="НЕ МЕНЯТЬ")
     gigachat_expired_at = models.IntegerField(default=0, verbose_name="НЕ МЕНЯТЬ")
 
     russian_cert = models.FileField(upload_to='support_files/', verbose_name="Сертификат с госуслуг", blank=True, null=True)
@@ -62,4 +62,4 @@ class TeamMember(models.Model):
 class TryingInstruction(models.Model):
     team_member = models.ForeignKey(TeamMember, on_delete=models.CASCADE, verbose_name="Игрок")
     instruction = models.TextField(max_length=500, verbose_name="Инструкция")
-    answer = models.TextField(max_length=1000, verbose_name="Ответ ИИ")
+    answer = models.TextField(max_length=1000, verbose_name="Ответ ИИ", null=True, blank=True)
