@@ -36,10 +36,12 @@ def get_user(request):
                 "state": game.state,
                 "winner": winner
             }
+        team = Team.objects.filter(team_members__user=user)
+
         return JsonResponse({
             'firstname': user.first_name or user.username,
             "authenticated": True,
-            'team': None,
+            'team': team.first().name if team.exists() else None,
             'extra': None,
             'is_admin': user.is_superuser,
             'game': game
@@ -82,6 +84,7 @@ def get_game(request):
         })
     return JsonResponse({})
 
+@csrf_exempt
 
 def create_teams(request):
     if request.user.is_superuser:
@@ -95,6 +98,8 @@ def create_teams(request):
             teams.append(teams.pop(0))
     return JsonResponse({})
 
+@csrf_exempt
+
 def next_state(request):
     if request.user.is_superuser:
         game = Game.objects.first()
@@ -103,11 +108,15 @@ def next_state(request):
             game.save()
     return JsonResponse({})
 
+@csrf_exempt
 
 def reset(request):
     if request.user.is_superuser:
 
         User.objects.filter(is_superuser=False).delete()
+        game = Game.objects.first()
+        game.state = 0
+        game.save()
 
         settings: Settings = Settings.objects.first()
 
@@ -132,6 +141,21 @@ def reset(request):
             json_data = response.json()
             settings.gigachat_access_token = json_data['access_token']
             settings.gigachat_expires_in = json_data['expires_at']
+
+
+    return JsonResponse({})
+
+@csrf_exempt
+
+def send_message(request):
+    if request.user.is_authenticated:
+        data = json.loads(request.body)
+        message = data.get('name', "Забудь что я говорил")
+
+        game = Game.objects.first()
+        if game.state == 1:
+            request.user.team_members.team.secure_instruction = message
+            request.user.team_members.team.save()
 
 
     return JsonResponse({})
