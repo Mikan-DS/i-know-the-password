@@ -12,6 +12,7 @@ from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 
 from .gigachat import update_token, GigaChatMessage
+from .gigachat import send_message as send_gigachat_message
 from .models import Game, TeamMember, Team, Settings, TryingInstruction
 
 
@@ -164,7 +165,7 @@ def work_message_sends():
     while True:
         for trying in TryingInstruction.objects.filter(answer=None):
             opposite_team = Team.objects.exclude(team_members=trying.team_member).first()
-            answer = send_message(
+            answer = send_gigachat_message(
                 [
                     GigaChatMessage(f"Секретный код: {opposite_team.code}", "system"),
                     GigaChatMessage(f"{opposite_team.secure_instruction}"),

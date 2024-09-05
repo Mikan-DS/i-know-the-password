@@ -2,6 +2,7 @@ import datetime
 import json
 import typing
 import uuid
+from fp.fp import FreeProxy
 
 import requests
 
@@ -11,6 +12,36 @@ class GigaChatMessage:
     def __init__(self, message, role="user"):
         self.message = message
         self.role = role
+
+
+def gigachat_request(url, headers, payload, is_second_try=False):
+    settings: Settings = Settings.objects.first()
+
+    proxies = None
+    if settings.gigachat_use_proxy:
+        if not settings.gigachat_last_working_proxy:
+            settings.gigachat_last_working_proxy = FreeProxy(country_id=['RU'], https=True).get()
+            settings.save()
+        proxies = {
+            "https": settings.gigachat_last_working_proxy
+        }
+
+    try:
+        return requests.request(
+            "POST",
+            url,
+            headers=headers,
+            data=payload,
+            verify=settings.russian_cert.path,
+            proxies=proxies
+        )
+    except Exception as e:
+        if settings.gigachat_use_proxy and not is_second_try:
+            settings.gigachat_last_working_proxy = FreeProxy(country_id=['RU'], https=True).get()
+            settings.save()
+            gigachat_request(url, headers, payload, True)
+        else:
+            raise e
 
 def update_token():
     settings: Settings = Settings.objects.first()
@@ -23,12 +54,10 @@ def update_token():
         'Authorization': f'Basic {settings.gigachat_auth_data}'
     }
 
-    response = requests.request(
-        "POST",
+    response = gigachat_request(
         settings.gigachat_auth_url,
-        headers=headers,
-        data=payload,
-        verify=settings.russian_cert.path
+        headers,
+        payload
     )
 
     if response.status_code == 200:
@@ -51,19 +80,6 @@ def send_message(messages: typing.List[GigaChatMessage], temperature=.7, max_tok
         "model": model,
         "messages": [
             {"role": message.role, "content": message.message} for message in messages
-            # {
-            #     "role": "system",
-            #     "content": f"Секретный код: {opposite_team.code}"
-            # },
-            # {
-            #     "role": "user",
-            #     "content": f"{opposite_team.secure_instruction}"
-            # },
-            # {
-            #     "role": "user",
-            #     "content": f"{trying.instruction}"
-            # },
-
         ],
         "temperature": temperature,
         "max_tokens": max_tokens
@@ -74,12 +90,10 @@ def send_message(messages: typing.List[GigaChatMessage], temperature=.7, max_tok
         'Authorization': f'Bearer {settings.gigachat_access_token}'
     }
 
-    response = requests.request(
-        "POST",
+    response = gigachat_request(
         "https://gigachat.devices.sberbank.ru/api/v1/chat/completions",
-        headers=headers,
-        data=payload,
-        verify=settings.russian_cert.path
+        headers,
+        payload
     )
 
     if response.status_code == 200:

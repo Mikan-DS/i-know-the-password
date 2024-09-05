@@ -2,6 +2,7 @@ from django.contrib.auth.models import User
 from django.db import models
 
 
+
 # Create your models here.
 class Settings(models.Model):
     gigachat_auth_data = models.CharField(max_length=500, blank=True, null=True, verbose_name="Базовая аутентификация")
@@ -19,6 +20,9 @@ class Settings(models.Model):
     gigachat_expired_at = models.IntegerField(default=0, verbose_name="НЕ МЕНЯТЬ")
 
     russian_cert = models.FileField(upload_to='support_files/', verbose_name="Сертификат с госуслуг", blank=True, null=True)
+
+    gigachat_use_proxy = models.BooleanField(default=True, verbose_name="Использование прокси при запросах к ГигаЧат")
+    gigachat_last_working_proxy = models.URLField(verbose_name="НЕ МЕНЯТЬ", blank=True, null=True)
 
     class Meta:
         verbose_name = "Настройка"
@@ -57,6 +61,9 @@ class Team(models.Model):
 class TeamMember(models.Model):
     team = models.ForeignKey(Team, on_delete=models.CASCADE, verbose_name="Команда", null=True, blank=True, related_name="team_members")
     user = models.OneToOneField(User, on_delete=models.CASCADE, verbose_name="Игрок", related_name="team_members")
+
+    def __str__(self):
+        return self.user.first_name
 
 
 class TryingInstruction(models.Model):
