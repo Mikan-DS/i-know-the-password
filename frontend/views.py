@@ -1,3 +1,4 @@
+import datetime
 import json
 import threading
 import time
@@ -122,6 +123,33 @@ def next_state(request):
     return JsonResponse({})
 
 
+def update_token():
+    settings: Settings = Settings.objects.first()
+
+    payload = f'scope={settings.SCOPES[settings.gigachat_scope][1]}'
+    headers = {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'RqUID': str(uuid.uuid4()),
+        'Accept': 'application/json',
+        'Authorization': f'Basic {settings.gigachat_auth_data}'
+    }
+
+    response = requests.request(
+        "POST",
+        settings.gigachat_auth_url,
+        headers=headers,
+        data=payload,
+        verify=settings.russian_cert.path
+    )
+
+    if response.status_code == 200:
+        json_data = response.json()
+        settings.gigachat_access_token = json_data['access_token']
+        settings.gigachat_expired_at = json_data['expires_at']
+        settings.save()
+    else:
+        raise Exception(response.text)
+
 @csrf_exempt
 def reset(request):
     if request.user.is_superuser:
@@ -133,32 +161,8 @@ def reset(request):
 
         User.objects.filter(is_superuser=False).delete()
 
+        update_token()
 
-        settings: Settings = Settings.objects.first()
-
-        payload = f'scope={settings.SCOPES[settings.gigachat_scope][1]}'
-        headers = {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'RqUID': str(uuid.uuid4()),
-            'Accept': 'application/json',
-            'Authorization': f'Basic {settings.gigachat_auth_data}'
-        }
-
-        response = requests.request(
-            "POST",
-            settings.gigachat_auth_url,
-            headers=headers,
-            data=payload,
-            verify=settings.russian_cert.path
-        )
-
-        if response.status_code == 200:
-            json_data = response.json()
-            settings.gigachat_access_token = json_data['access_token']
-            settings.gigachat_expired_at = json_data['expires_at']
-            settings.save()
-        else:
-            raise Exception(response.text)
 
     return JsonResponse({})
 
@@ -216,6 +220,13 @@ def work_message_sends():
                 'Authorization': f'Bearer {settings.gigachat_access_token}'
             }
 
+            gigachat_expired_at = int(str(settings.gigachat_expired_at)[:10])
+            # print(datetime.datetime.utcfromtimestamp(gigachat_expired_at), datetime.datetime.now())
+
+            if datetime.datetime.utcfromtimestamp(gigachat_expired_at) < datetime.datetime.now():
+                update_token()
+
+
             response = requests.request(
                 "POST",
                 "https://gigachat.devices.sberbank.ru/api/v1/chat/completions",
@@ -229,6 +240,7 @@ def work_message_sends():
                 trying.answer = json_data["choices"][0]["message"]["content"]
                 trying.save()
             else:
+                print(response)
                 trying.answer = "!!!! НЕ ПОЛУЧИЛОСЬ СВЯЗАТЬСЯ С ИИ !!!!"
                 trying.save()
 
