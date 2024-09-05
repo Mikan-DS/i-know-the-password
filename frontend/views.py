@@ -163,17 +163,20 @@ def send_message(request):
 
 def work_message_sends():
     while True:
-        for trying in TryingInstruction.objects.filter(answer=None):
-            opposite_team = Team.objects.exclude(team_members=trying.team_member).first()
-            answer = send_gigachat_message(
-                [
-                    GigaChatMessage(f"Секретный код: {opposite_team.code}", "system"),
-                    GigaChatMessage(f"{opposite_team.secure_instruction}"),
-                    GigaChatMessage(f"{trying.instruction}"),
-                ]
-            )
-            trying.answer = answer
-            trying.save()
+        try:
+            for trying in TryingInstruction.objects.filter(answer=None):
+                opposite_team = Team.objects.exclude(team_members=trying.team_member).first()
+                answer = send_gigachat_message(
+                    [
+                        GigaChatMessage(f"Секретный код: {opposite_team.code}", "system"),
+                        GigaChatMessage(f"{opposite_team.secure_instruction}"),
+                        GigaChatMessage(f"{trying.instruction}"),
+                    ]
+                )
+                trying.answer = answer
+                trying.save()
+        except:
+            pass
 
         time.sleep(1)
 
