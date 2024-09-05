@@ -11,7 +11,8 @@ from django.http import JsonResponse
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 
-from frontend.models import Game, TeamMember, Team, Settings, TryingInstruction
+from .gigachat import update_token, GigaChatMessage
+from .models import Game, TeamMember, Team, Settings, TryingInstruction
 
 
 # Create your views here.
@@ -123,33 +124,6 @@ def next_state(request):
     return JsonResponse({})
 
 
-def update_token():
-    settings: Settings = Settings.objects.first()
-
-    payload = f'scope={settings.SCOPES[settings.gigachat_scope][1]}'
-    headers = {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'RqUID': str(uuid.uuid4()),
-        'Accept': 'application/json',
-        'Authorization': f'Basic {settings.gigachat_auth_data}'
-    }
-
-    response = requests.request(
-        "POST",
-        settings.gigachat_auth_url,
-        headers=headers,
-        data=payload,
-        verify=settings.russian_cert.path
-    )
-
-    if response.status_code == 200:
-        json_data = response.json()
-        settings.gigachat_access_token = json_data['access_token']
-        settings.gigachat_expired_at = json_data['expires_at']
-        settings.save()
-    else:
-        raise Exception(response.text)
-
 @csrf_exempt
 def reset(request):
     if request.user.is_superuser:
@@ -189,60 +163,16 @@ def send_message(request):
 def work_message_sends():
     while True:
         for trying in TryingInstruction.objects.filter(answer=None):
-
-            settings: Settings = Settings.objects.first()
-
             opposite_team = Team.objects.exclude(team_members=trying.team_member).first()
-
-            payload = json.dumps({
-                "model": "GigaChat",
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": f"Секретный код: {opposite_team.code}"
-                    },
-                    {
-                        "role": "user",
-                        "content": f"{opposite_team.secure_instruction}"
-                    },
-                    {
-                        "role": "user",
-                        "content": f"{trying.instruction}"
-                    },
-
-                ],
-                "temperature": .7,
-                "max_tokens": 400
-            })
-            headers = {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'Authorization': f'Bearer {settings.gigachat_access_token}'
-            }
-
-            gigachat_expired_at = int(str(settings.gigachat_expired_at)[:10])
-            # print(datetime.datetime.utcfromtimestamp(gigachat_expired_at), datetime.datetime.now())
-
-            if datetime.datetime.utcfromtimestamp(gigachat_expired_at) < datetime.datetime.now():
-                update_token()
-
-
-            response = requests.request(
-                "POST",
-                "https://gigachat.devices.sberbank.ru/api/v1/chat/completions",
-                headers=headers,
-                data=payload,
-                verify=settings.russian_cert.path
+            answer = send_message(
+                [
+                    GigaChatMessage(f"Секретный код: {opposite_team.code}", "system"),
+                    GigaChatMessage(f"{opposite_team.secure_instruction}"),
+                    GigaChatMessage(f"{trying.instruction}"),
+                ]
             )
-
-            if response.status_code == 200:
-                json_data = response.json()
-                trying.answer = json_data["choices"][0]["message"]["content"]
-                trying.save()
-            else:
-                print(response)
-                trying.answer = "!!!! НЕ ПОЛУЧИЛОСЬ СВЯЗАТЬСЯ С ИИ !!!!"
-                trying.save()
+            trying.answer = answer
+            trying.save()
 
         time.sleep(1)
 
